@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
-# Copyright (c) 2013-2014 Abram Hindle
+# Copyright (c) 2013-2020 Abram Hindle, John Dorn
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 import flask
-from flask import Flask, request
+from flask import Flask, request, redirect
 from flask_sockets import Sockets
 import gevent
 from gevent import queue
@@ -69,19 +69,37 @@ myWorld.add_set_listener( set_listener )
 @app.route('/')
 def hello():
     '''Return something coherent here.. perhaps redirect to /static/index.html '''
-    return None
+    return redirect('/static/index.html')
 
-def read_ws(ws,client):
+def ws_send(ws, data):
+    msg = json.dumps(data)
+    #print(">>>", msg)
+    ws.send(msg)
+
+def read_ws(ws):
     '''A greenlet function that reads from the websocket and updates the world'''
-    # XXX: TODO IMPLEMENT ME
-    return None
+    ws_send(ws, myWorld.world())
+    while True:
+        msg = ws.receive()
+        #print("<<<", msg)
+        if msg is None:
+            break
+        else:
+            data = json.loads(msg)
+            for entity, data in data.items():
+                myWorld.set(entity, data)
 
 @sockets.route('/subscribe')
 def subscribe_socket(ws):
     '''Fufill the websocket URL of /subscribe, every update notify the
        websocket and read updates from the websocket '''
-    # XXX: TODO IMPLEMENT ME
-    return None
+
+    def send_update(entity, data):
+        ws_send(ws, { entity: data })
+
+    myWorld.add_set_listener(send_update)
+    read_ws(ws)
+    myWorld.listeners.remove(send_update)
 
 
 # I give this to you, this is how you get the raw body/data portion of a post in flask

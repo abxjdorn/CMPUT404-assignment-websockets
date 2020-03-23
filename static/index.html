@@ -6,7 +6,7 @@
     <meta content='width=device-width; height=device-height; initial-scale=1.0; maximum-scale=1.0; user-scalable=0;' name='viewport' />
     <meta name="viewport" content="width=device-width" />
     <meta name="license" content="
-        Copyright 2013 Google, Abram Hindle
+        Copyright 2020 Google, Abram Hindle, John Dorn
         
         Licensed under the Apache License, Version 2.0 (the "License");
         you may not use this file except in compliance with the License.
@@ -27,7 +27,9 @@
     <canvas id="c" width="100%" height="100%" style="-webkit-tap-highlight-color: transparent;"></canvas> 
 
     <script>
-      // Fix me
+// Sections marked with ** are included from my own assignment4 solution
+// (https://github.com/abxjdorn/CMPUT404-assignment-ajax)
+// under the same license as this file.
 var canvas = document.getElementById('c');
 var host = window.location.host;
 var context = canvas.getContext("2d");
@@ -36,25 +38,33 @@ var H = canvas.height = window.innerHeight-50;
 var wscounter = 0;
 var socket;
 
+// ** This section is from assignment4 (see header)
+// Try to avoid clients overwriting eachother's entities
+var uniqueId = Math.floor(Math.random()*1000);
+
+// Give this client a pseudo-unique colour
+var colours = ['#f00', '#ff0', '#0f0', '#0ff', '#00f', '#f0f'];
+var myColour = colours[uniqueId % colours.length];
+// ** end included section
+
 function debug(str) {
     var debugDiv = document.getElementById('debug');
     debugDiv.innerHTML = "" + str;
 }
-debug("Test");
+//debug("Test");
 
 world = {};
 
-//XXX: TODO Make this prettier!
 function drawCircle(context,entity) {
     with(context) {
         beginPath();                
         lineWidth = 3;
-        var x = entity["x"];
-        var y = entity["y"];
-        //moveTo(x,y);
-        fillStyle = entity["colour"];
-        strokeStyle = fillStyle;
-        arc(x, y, (entity["radius"])?entity["radius"]:50, 0, 2.0 * Math.PI, false);  
+// ** This section is from assignment4 (see header)
+        var { x, y, fromX, fromY, colour } = entity;
+        strokeStyle = entity["colour"];
+        if (fromX !== null && fromY !== null) moveTo(fromX, fromY);
+        lineTo(x, y);
+// ** end included section
         stroke();                                
     }
 }
@@ -121,14 +131,24 @@ function getPosition(e) {
 	}
 }
 
+function socketSend(data) {
+    const msg = JSON.stringify(data);
+    //console.info(`>>> ${msg}`);
+    socket.send(msg);
+}
+
 function addEntity(entity, data) {
     world[entity] = data;
     drawNextFrame(); // (but should we?)
-    //XXX: Send a XHTML Request that updates the entity you just modified!
+    // Send a XHTML Request that updates the entity you just modified!
+    socketSend({ [entity]: data });
 }
 var counter = 0;
 function addEntityWithoutName(data) {
-    var name = "X"+(counter++)%100;
+
+// ** This section is from assignment4 (see header)
+    var name = uniqueId+"X"+(counter++)%100;
+// ** end section
     addEntity(name,data);
 }
 
@@ -229,19 +249,43 @@ mouse = (function() {
 })();
 
 // Add the application specific mouse listeners!
-//XXX: TODO Make these prettier!
+// ** This section is from assignment4 (see header)
+let lastX = null;
+let lastY = null;
+
 mouse.mousedowners.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'blue'});
+    addEntityWithoutName({
+        x,
+        y,
+        fromX: null,
+        fromY: null,
+        colour: myColour,
+    });
+    [lastX, lastY] = [x, y];
 });
 
 mouse.mouseuppers.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'red'});
+    addEntityWithoutName({
+        x,
+        y,
+        fromX: lastX,
+        fromY: lastY,
+        colour: myColour,
+    });
+    [lastX, lastY] = [null, null];
 });
 
 mouse.mousedraggers.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'green',
-                          'radius':10});
+    addEntityWithoutName({
+        x,
+        y,
+        fromX: lastX,
+        fromY: lastY,
+        colour: myColour,
+    });
+    [lastX, lastY] = [x, y];
 });
+// ** end included section
 
 
 function update() {
@@ -253,15 +297,22 @@ function wsSetup() {
     var url = "ws://"+host+"/subscribe";   
     socket = new WebSocket(url);
     socket.onopen = function() {
-        //XXX: TODO What are you going to do here?
+        // Don't need to do anything here
     };
     socket.onerror = function(msg) {
-        debug("WebSocket Error:" + msg.data);
+        //debug("WebSocket Error:" + msg.data);
+        console.error(msg.data);
     };
+    socket.onclose = function(msg) {
+        console.warn("WebSocket was closed");
+    }
     socket.onmessage = function(msg) {  
         try {
-            debug("WebSocket Recv:" + msg.data);
-            //XXX: TODO What are you going to do here?            
+            //debug("WebSocket Recv:" + msg.data);
+            //console.info(`<<< ${msg.data}`);
+            const data = JSON.parse(msg.data);
+            Object.keys(data).forEach((k) => world[k] = data[k]);
+            drawNextFrame();
         } catch (e) {
             alert("socket on message: " + e);
         }

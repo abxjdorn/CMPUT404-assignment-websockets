@@ -53,6 +53,11 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 
+* * *
+
+Solution contains some sections taken from my own solution to assignment 4
+(https://github.com/abxjdorn/CMPUT404-assignment-ajax)
+
 Contributors
 ============
 
